@@ -6,9 +6,11 @@ This file creates your application.
 """
 
 from app import app
-from flask import render_template, request, jsonify, send_file
+from flask import render_template, request, jsonify, send_file, redirect, url_for, flash ,send_from_directory
 import os
-
+from .forms import UploadForm
+from werkzeug.utils import secure_filename
+from flask_wtf.csrf import generate_csrf
 
 ###
 # Routing for your application.
@@ -16,8 +18,30 @@ import os
 
 @app.route('/')
 def index():
-    return jsonify(message="This is the beginning of our API")
+    return jsonify(message="This is the beginning of our API sushi")
 
+@app.route('/api/upload',methods=["POST", "GET"])
+def upload():
+    myform = UploadForm()
+
+    if request.method == 'POST' and myform.validate_on_submit:
+        photo = myform.photo.data
+        filename = secure_filename(photo.filename)
+        print("testing ",filename, photo, "this is file name ", "this is directory ",os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        photo.save(os.path.join(app.config['UPLOAD_FOLDER'],filename))
+
+        description = myform.description.data
+
+        flash('Successfully added Image.','success')
+        return jsonify(message="File Upload Successful" , filename = filename, description = description )
+    else:
+        flash('ERROR didnt add image','danger')
+        return jsonify(errors = form_errors(myform))
+
+
+@app.route('/api/csrf-token', methods=['GET'])
+def get_csrf():
+    return jsonify({'csrf_token': generate_csrf()})
 
 ###
 # The functions below should be applicable to all Flask apps.
@@ -43,6 +67,14 @@ def send_text_file(file_name):
     """Send your static text file."""
     file_dot_text = file_name + '.txt'
     return app.send_static_file(file_dot_text)
+
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(u"Error in the %s field - %s" % (
+                getattr(form, field).label.text,
+                error
+            ), 'danger')
 
 
 @app.after_request
